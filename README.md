@@ -1,7 +1,7 @@
 
 # Marschbiachl Assistent
 
-This app assists the user for creating a Marschbiachl, by rotating and cropping
+This app assists the user in creating a Marschbiachl, by rotating and cropping
 the sheet music. The program supports three commands
 * main.py <input_directory> -m split -o <output_directory>
 * main.py <input_directory> -m align -o <output_directory> -p <name_filter_1> <name_filter_2> ...
