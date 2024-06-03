@@ -102,7 +102,7 @@ def split_file_to_images(destination_directory, file_path, subdir=""):
 def split_pdfs(input_dir: str, output_dir: str):
     files = [file for file in os.listdir(input_dir) if isfile(join(input_dir, file))]
     for file in files:
-        split_file_to_images(join("images", file), join(input_dir, file))
+        split_file_to_images(join(output_dir, file), join(input_dir, file))
 
     sub_dirs = [sub_dir for sub_dir in os.listdir(input_dir) if isdir(join(input_dir, sub_dir))]
     for sub_dir in sub_dirs:
