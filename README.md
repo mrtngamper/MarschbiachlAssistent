@@ -10,7 +10,7 @@ the sheet music. The program supports three commands
 # How to use
 
 ## split
-First the user should use to split command, which splits all pdf files contained in a folder and its direct subfolder into jpegs,
+First the user should use the split command, which splits all pdf files contained in a folder and its direct subfolder into jpegs,
 and converts all images to jpegs. The results will be stored in the specified output_folder.
 
 ```
