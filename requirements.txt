@@ -1,0 +1,8 @@
+joblib==1.4.2
+numpy==1.26.4
+opencv-contrib-python==4.9.0.80
+opencv-python==4.9.0.80
+pdf2image==1.17.0
+pillow==10.3.0
+psutil==5.9.8
+PyPDF2==3.0.1
