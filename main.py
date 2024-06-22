@@ -86,7 +86,7 @@ def split_file_to_images(destination_directory, file_path, subdir=""):
             del images
             gc.collect()
 
-        Parallel(n_jobs=psutil.cpu_count(logical=True))(
+        Parallel(n_jobs=2)(
             delayed(convert_pdf)(page, stepsize) for page in range(1, pages + 1, stepsize))
     elif file_path.endswith(".tif"):
         im = Image.open(file_path)
@@ -148,18 +148,18 @@ def fix_sheet_rotation(image, is_vert):
         if is_vert:
             empty_image = cv2.rotate(empty_image, cv2.ROTATE_90_CLOCKWISE)
 
-        total_labels, labels = cv2.connectedComponents(empty_image,connectivity=8)
+        total_labels, labels = cv2.connectedComponents(empty_image, connectivity=8)
         angles = []
         weights = []
-        for label in range(0, total_labels-1):
+        for label in range(0, total_labels - 1):
             mask = (labels == label).astype(np.uint8) * 255
-            mask = cv2.resize(mask, np.floor_divide(mask.shape,4), interpolation=cv2.INTER_CUBIC)
-            x, y, w, h= cv2.boundingRect(mask)
-            point_list =cv2.findNonZero(mask)
-            if point_list is None or len(point_list)<3:
+            mask = cv2.resize(mask, np.floor_divide(mask.shape, 4), interpolation=cv2.INTER_CUBIC)
+            x, y, w, h = cv2.boundingRect(mask)
+            point_list = cv2.findNonZero(mask)
+            if point_list is None or len(point_list) < 3:
                 continue
             vx, vy, x0, y0 = cv2.fitLine(point_list, cv2.DIST_L2, 0, 0.01, 0.01)
-            angles.append(np.arctan2(vy, vx)*180/np.pi)
+            angles.append(np.arctan2(vy, vx) * 180 / np.pi)
             weights.append(np.linalg.norm([w, h]))
 
         angles = np.array([angle if angle < 180 else angle - 360 for angle in angles]).squeeze()
@@ -174,8 +174,8 @@ def fix_sheet_rotation(image, is_vert):
         weights = weights[start_index:end_index]
         median_angle = np.average(angles, weights=np.array(weights))
 
-        rotated_image = rotate_image(image, median_angle/2)
-        return median_angle/2, rotated_image
+        rotated_image = rotate_image(image, median_angle / 2)
+        return median_angle / 2, rotated_image
     return None
 
 
@@ -219,10 +219,13 @@ def show_image(image):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+
 def normalize_angle(angle):
-    if angle>180:
-        return angle-360
+    if angle > 180:
+        return angle - 360
     return angle
+
+
 def align_image(image, is_vert, file_name, dir_name, output_dir):
     if False and Path(join(output_dir, dir_name, file_name) + ".jpeg").exists():
         return
@@ -233,10 +236,11 @@ def align_image(image, is_vert, file_name, dir_name, output_dir):
     iteration = 0
     total_angle = 0
     original_image = image
-    while abs(normalize_angle(median_angle)) > 0.02 and abs(normalize_angle(median_angle + 180)) > 0.02 and iteration < max_iterations:
+    while abs(normalize_angle(median_angle)) > 0.02 and abs(
+            normalize_angle(median_angle + 180)) > 0.02 and iteration < max_iterations:
         median_angle, image = fix_sheet_rotation(image, is_vert)
         total_angle += median_angle
-        print(f"{dir_name} {file_name}, rotation step: {median_angle}, iteration: {iteration+1}/{max_iterations}")
+        print(f"{dir_name} {file_name}, rotation step: {median_angle}, iteration: {iteration + 1}/{max_iterations}")
         iteration += 1
     image = rotate_image(original_image, total_angle)
 
@@ -300,9 +304,23 @@ def combine_images(input_dir: str, output_dir: str, part: str):
             I1.text((50, A5_HEIGHT / 2), "Missing part for: " + jpeg_dir,
                     font=ImageFont.truetype('LiberationSerif-Regular.ttf', 200))
             images.append(image)
-            pass
         for jpeg in jpegs:
-            image = Image.open(jpeg)
+            cv_image = cv2.imread(jpeg)
+            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+            cv_image = 255 - cv_image
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            cv_image = clahe.apply(cv_image)
+            cv_image, thres = cv2.threshold(cv_image, 0, 255, cv2.THRESH_TOZERO + cv2.THRESH_OTSU)
+
+            non_zero_pixels = thres[thres > 0]
+            non_zero_pixels.sort()
+            median_value = non_zero_pixels[len(non_zero_pixels)*9 // 10]
+            large_thres = thres.astype(np.uint32)
+            thres[thres > 0] = np.clip(large_thres[ large_thres>0] + 255 - median_value, 0, 255).astype(np.uint8)
+
+            thres = 255 - thres
+
+            image = Image.fromarray(thres)
             images.append(image)
 
     os.makedirs(output_dir, exist_ok=True)
