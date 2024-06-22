@@ -86,7 +86,7 @@ def split_file_to_images(destination_directory, file_path, subdir=""):
             del images
             gc.collect()
 
-        Parallel(n_jobs=psutil.cpu_count(logical=True))(
+        Parallel(n_jobs=1)(
             delayed(convert_pdf)(page, stepsize) for page in range(1, pages + 1, stepsize))
     elif file_path.endswith(".tif"):
         im = Image.open(file_path)
@@ -164,6 +164,10 @@ def fix_sheet_rotation(image, is_vert):
 
         angles = np.array([angle if angle < 180 else angle - 360 for angle in angles]).squeeze()
 
+
+        if(len(angles.shape)==0):
+            return 0, image
+
         weights = np.array(weights)
         perm = np.argsort(angles)
         weights = weights[perm]
@@ -174,8 +178,8 @@ def fix_sheet_rotation(image, is_vert):
         weights = weights[start_index:end_index]
         median_angle = np.average(angles, weights=np.array(weights))
 
-        rotated_image = rotate_image(image, median_angle/2)
-        return median_angle/2, rotated_image
+        rotated_image = rotate_image(image, median_angle/4)
+        return median_angle/4, rotated_image
     return None
 
 
@@ -224,12 +228,12 @@ def normalize_angle(angle):
         return angle-360
     return angle
 def align_image(image, is_vert, file_name, dir_name, output_dir):
-    if False and Path(join(output_dir, dir_name, file_name) + ".jpeg").exists():
+    if Path(join(output_dir, dir_name, file_name) + ".jpeg").exists():
         return
 
     # rotate image
     median_angle = 90
-    max_iterations = 10
+    max_iterations = 20
     iteration = 0
     total_angle = 0
     original_image = image
