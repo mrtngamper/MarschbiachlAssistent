@@ -5,6 +5,7 @@ import shutil
 from os.path import isfile, join, isdir
 from pathlib import Path
 import PIL
+import PyPDF2
 from PIL.ImageDraw import Draw
 from PyPDF2 import PdfWriter, PdfReader
 import cv2
@@ -227,7 +228,7 @@ def normalize_angle(angle):
 
 
 def align_image(image, is_vert, file_name, dir_name, output_dir):
-    if False and Path(join(output_dir, dir_name, file_name) + ".jpeg").exists():
+    if Path(join(output_dir, dir_name, file_name) + ".jpeg").exists():
         return
 
     # rotate image
@@ -293,10 +294,17 @@ def combine_images(input_dir: str, output_dir: str, part: str):
     jpeg_dirs = [join(input_dir, file) for file in os.listdir(input_dir) if isdir(join(input_dir, file))]
     jpeg_dirs.sort()
     images = []
+
+    chapter_titles = []
+
     for jpeg_dir in jpeg_dirs:
         jpegs = [join(jpeg_dir, file) for file in os.listdir(jpeg_dir) if
                  isfile(join(jpeg_dir, file)) and file.endswith('.jpeg') and file.__contains__(part)]
         jpegs.sort()
+
+        chapter_title = os.path.basename(jpeg_dir)
+        chapter_title = chapter_title.replace('_', ' ')
+
 
         if len(jpegs) == 0:
             image = PIL.Image.new(mode="RGB", size=(A5_WIDTH, A5_HEIGHT))
@@ -304,6 +312,7 @@ def combine_images(input_dir: str, output_dir: str, part: str):
             I1.text((50, A5_HEIGHT / 2), "Missing part for: " + jpeg_dir,
                     font=ImageFont.truetype('LiberationSerif-Regular.ttf', 200))
             images.append(image)
+            chapter_titles.append(chapter_title)
         for jpeg in jpegs:
             cv_image = cv2.imread(jpeg)
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
@@ -322,6 +331,7 @@ def combine_images(input_dir: str, output_dir: str, part: str):
 
             image = Image.fromarray(thres)
             images.append(image)
+            chapter_titles.append(chapter_title)
 
     os.makedirs(output_dir, exist_ok=True)
     output_file = join(output_dir, part) + ".pdf"
@@ -329,7 +339,22 @@ def combine_images(input_dir: str, output_dir: str, part: str):
         output_file, "PDF", resolution=100.0, save_all=True, append_images=images[1:]
     )
 
+
     change_pdf_page_size(output_file, output_file)
+
+    # Add bookmarks
+    pdf_reader = PyPDF2.PdfReader(output_file)
+    pdf_writer = PyPDF2.PdfWriter()
+
+    for page in pdf_reader.pages:
+        pdf_writer.add_page(page)
+
+    for page, title in enumerate(chapter_titles):
+        pdf_writer.add_outline_item(title, page)
+
+    with open(output_file, 'wb') as output_pdf_file:
+        pdf_writer.write(output_pdf_file)
+
     pass
 
 
